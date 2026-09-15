@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="neonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="50%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#ec4899" />
+    </linearGradient>
+    <linearGradient id="keyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bgGrad)" stroke="url(#neonGrad)" stroke-width="3"/>
+  <!-- 3D keycap geometry -->
+  <polygon points="32,36 96,36 106,86 22,86" fill="url(#keyGrad)" stroke="#334155" stroke-width="1.5"/>
+  <polygon points="38,42 90,42 98,78 30,78" fill="#1e1b4b" stroke="url(#neonGrad)" stroke-width="2" filter="url(#glow)"/>
+  <!-- Keycap Letter '3D' / Lighting -->
+  <text x="64" y="66" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="900" fill="#38bdf8" text-anchor="middle" filter="url(#glow)">3D</text>
+  <!-- Speed lines -->
+  <line x1="18" y1="96" x2="110" y2="96" stroke="#06b6d4" stroke-width="2" stroke-dasharray="4 4" opacity="0.8"/>
+  <line x1="28" y1="104" x2="100" y2="104" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="6 3" opacity="0.7"/>
+</svg>
