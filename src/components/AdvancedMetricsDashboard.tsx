@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { AdvancedMetrics, FingerName } from '../types';
+import { AdvancedMetrics, FingerName, ThemeMode } from '../types';
 import { FINGER_NAMES } from '../utils/fingerMapping';
+import { getPalette } from '../utils/themeConfig';
 
 interface AdvancedMetricsDashboardProps {
   metrics: AdvancedMetrics;
@@ -8,13 +9,16 @@ interface AdvancedMetricsDashboardProps {
   accuracy: number;
   highestStreak: number;
   onClose?: () => void;
+  themeMode?: ThemeMode;
 }
 
 export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> = ({
   metrics,
   wpm,
   onClose,
+  themeMode = 'light',
 }) => {
+  const p = getPalette(themeMode);
   const [selectedFinger, setSelectedFinger] = useState<FingerName | null>(null);
 
   const totalErrors =
@@ -37,32 +41,32 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
     <div
       className="w-full flex flex-col gap-6 font-mono select-none"
       style={{
-        backgroundColor: '#B59B7A',
-        color: '#F6F5EF',
+        backgroundColor: p.cardBg,
+        color: p.text,
       }}
     >
       {/* Header */}
       <div
         className="flex flex-wrap items-center justify-between border-b pb-4"
-        style={{ borderColor: '#315C45' }}
+        style={{ borderColor: p.border }}
       >
         <div>
           <div className="flex items-center gap-3">
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#315C45] flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2" style={{ color: p.text }}>
               TELEMETRY ARCHIVE
             </h2>
             <span
               className="px-3 py-1 rounded-full text-[11px] font-bold tracking-wider border"
               style={{
-                backgroundColor: '#315C45',
-                borderColor: '#F6F5EF',
-                color: '#F6F5EF',
+                backgroundColor: p.isDark ? '#232E1A' : '#EDE8F3',
+                borderColor: p.border,
+                color: p.text,
               }}
             >
               DIAGNOSTIC ACTIVE
             </span>
           </div>
-          <p className="text-xs uppercase tracking-wider text-[#F6F5EF] mt-1 font-bold">
+          <p className="text-xs uppercase tracking-wider mt-1 font-bold" style={{ color: p.textMuted }}>
             Multi-Dimensional Keystroke Latency & Biometric Load
           </p>
         </div>
@@ -70,11 +74,12 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
         {onClose && (
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all active:scale-95 border cursor-pointer"
+            className="tubelight-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all active:scale-95 border cursor-pointer"
             style={{
-              backgroundColor: '#315C45',
-              borderColor: '#F6F5EF',
-              color: '#F6F5EF',
+              backgroundColor: p.primary,
+              borderColor: p.border,
+              color: p.activeBtnText,
+              boxShadow: p.tubelightGlow,
             }}
           >
             Close Telemetry
@@ -88,24 +93,24 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
         <div
           className="rounded-2xl p-5 border shadow-sm relative overflow-hidden transition-all"
           style={{
-            backgroundColor: '#315C45',
-            borderColor: '#F6F5EF',
-            color: '#F6F5EF',
+            backgroundColor: p.isDark ? '#232E1A' : '#EDE8F3',
+            borderColor: p.border,
+            color: p.text,
           }}
         >
-          <p className="text-[11px] font-bold uppercase tracking-wider opacity-80 mb-1">
+          <p className="text-[11px] font-bold uppercase tracking-wider opacity-80 mb-1" style={{ color: p.textMuted }}>
             Mean Keystroke Flight
           </p>
-          <div className="text-3xl sm:text-4xl font-extrabold leading-none flex items-baseline gap-1">
+          <div className="text-3xl sm:text-4xl font-extrabold leading-none flex items-baseline gap-1" style={{ color: p.text }}>
             {metrics.meanLatencyMs}
             <span className="text-xs opacity-75 font-normal">ms</span>
           </div>
-          <p className="text-xs opacity-80 mt-3">
-            Jitter: <span className="font-bold">{metrics.latencyJitterMs}ms</span>
+          <p className="text-xs opacity-80 mt-3" style={{ color: p.textMuted }}>
+            Jitter: <span className="font-bold" style={{ color: p.text }}>{metrics.latencyJitterMs}ms</span>
           </p>
-          <div className="mt-2.5 h-2 bg-[#B59B7A] rounded-full w-full overflow-hidden">
+          <div className="mt-2.5 h-2 bg-[#A3B18A]/30 rounded-full w-full overflow-hidden">
             <div
-              className="h-full bg-[#F6F5EF] rounded-full transition-all"
+              className="h-full bg-[#A3B18A] rounded-full transition-all"
               style={{ width: `${Math.min(100, Math.max(10, 100 - metrics.meanLatencyMs / 3))}%` }}
             />
           </div>
@@ -115,27 +120,27 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
         <div
           className="rounded-2xl p-5 border shadow-sm relative overflow-hidden transition-all"
           style={{
-            backgroundColor: '#315C45',
-            borderColor: '#F6F5EF',
-            color: '#F6F5EF',
+            backgroundColor: p.isDark ? '#232E1A' : '#EDE8F3',
+            borderColor: p.border,
+            color: p.text,
           }}
         >
-          <p className="text-[11px] font-bold uppercase tracking-wider opacity-80 mb-1">
+          <p className="text-[11px] font-bold uppercase tracking-wider opacity-80 mb-1" style={{ color: p.textMuted }}>
             Rhythmic Consistency
           </p>
-          <div className="text-3xl sm:text-4xl font-extrabold leading-none flex items-baseline gap-1">
+          <div className="text-3xl sm:text-4xl font-extrabold leading-none flex items-baseline gap-1" style={{ color: p.text }}>
             {metrics.consistencyScore}
             <span className="text-xs opacity-75 font-normal">%</span>
           </div>
-          <p className="text-xs opacity-80 mt-3">
+          <p className="text-xs opacity-80 mt-3" style={{ color: p.textMuted }}>
             Cadence:{' '}
-            <span className="font-bold">
+            <span className="font-bold" style={{ color: p.text }}>
               {metrics.consistencyScore > 80 ? 'EXEMPLARY' : 'STABLE'}
             </span>
           </p>
-          <div className="mt-2.5 h-2 bg-[#B59B7A] rounded-full w-full overflow-hidden">
+          <div className="mt-2.5 h-2 bg-[#A3B18A]/30 rounded-full w-full overflow-hidden">
             <div
-              className="h-full bg-[#F6F5EF] rounded-full transition-all"
+              className="h-full bg-[#A3B18A] rounded-full transition-all"
               style={{ width: `${metrics.consistencyScore}%` }}
             />
           </div>
@@ -145,24 +150,24 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
         <div
           className="rounded-2xl p-5 border shadow-sm relative overflow-hidden transition-all"
           style={{
-            backgroundColor: '#315C45',
-            borderColor: '#F6F5EF',
-            color: '#F6F5EF',
+            backgroundColor: p.isDark ? '#232E1A' : '#EDE8F3',
+            borderColor: p.border,
+            color: p.text,
           }}
         >
-          <p className="text-[11px] font-bold uppercase tracking-wider opacity-80 mb-1">
+          <p className="text-[11px] font-bold uppercase tracking-wider opacity-80 mb-1" style={{ color: p.textMuted }}>
             Burst Frequency
           </p>
-          <div className="text-3xl sm:text-4xl font-extrabold leading-none flex items-baseline gap-1">
+          <div className="text-3xl sm:text-4xl font-extrabold leading-none flex items-baseline gap-1" style={{ color: p.text }}>
             {displayBurstWpm}
             <span className="text-xs opacity-75 font-normal">wpm</span>
           </div>
-          <p className="text-xs opacity-80 mt-3">
-            Sustained Speed: <span className="font-bold">{wpm} WPM</span>
+          <p className="text-xs opacity-80 mt-3" style={{ color: p.textMuted }}>
+            Sustained Speed: <span className="font-bold" style={{ color: p.text }}>{wpm} WPM</span>
           </p>
-          <div className="mt-2.5 h-2 bg-[#B59B7A] rounded-full w-full overflow-hidden">
+          <div className="mt-2.5 h-2 bg-[#A3B18A]/30 rounded-full w-full overflow-hidden">
             <div
-              className="h-full bg-[#F6F5EF] rounded-full transition-all"
+              className="h-full bg-[#A3B18A] rounded-full transition-all"
               style={{ width: `${Math.min(100, (displayBurstWpm / 160) * 100)}%` }}
             />
           </div>
@@ -172,27 +177,27 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
         <div
           className="rounded-2xl p-5 border shadow-sm relative overflow-hidden transition-all"
           style={{
-            backgroundColor: '#315C45',
-            borderColor: '#F6F5EF',
-            color: '#F6F5EF',
+            backgroundColor: p.isDark ? '#232E1A' : '#EDE8F3',
+            borderColor: p.border,
+            color: p.text,
           }}
         >
-          <p className="text-[11px] font-bold uppercase tracking-wider opacity-80 mb-1">
+          <p className="text-[11px] font-bold uppercase tracking-wider opacity-80 mb-1" style={{ color: p.textMuted }}>
             Bilateral Hand Balance
           </p>
-          <div className="text-2xl sm:text-3xl font-extrabold leading-none flex items-baseline gap-2">
+          <div className="text-2xl sm:text-3xl font-extrabold leading-none flex items-baseline gap-2" style={{ color: p.text }}>
             <span>{metrics.handBalance.leftPercent}%</span>
             <span className="text-xs opacity-75">L /</span>
             <span>{metrics.handBalance.rightPercent}%</span>
             <span className="text-xs opacity-75">R</span>
           </div>
-          <p className="text-xs opacity-80 mt-3">
-            Thumb Load: <span className="font-bold">{metrics.handBalance.thumbPercent}%</span>
+          <p className="text-xs opacity-80 mt-3" style={{ color: p.textMuted }}>
+            Thumb Load: <span className="font-bold" style={{ color: p.text }}>{metrics.handBalance.thumbPercent}%</span>
           </p>
-          <div className="mt-2.5 h-2 bg-[#B59B7A] rounded-full w-full flex overflow-hidden">
-            <div className="bg-[#F6F5EF] h-full" style={{ width: `${metrics.handBalance.leftPercent}%` }} />
-            <div className="bg-[#B59B7A] h-full" style={{ width: `${metrics.handBalance.thumbPercent}%` }} />
-            <div className="bg-[#F6F5EF] h-full" style={{ width: `${metrics.handBalance.rightPercent}%` }} />
+          <div className="mt-2.5 h-2 bg-[#A3B18A]/30 rounded-full w-full flex overflow-hidden">
+            <div className="bg-[#A3B18A] h-full" style={{ width: `${metrics.handBalance.leftPercent}%` }} />
+            <div className="bg-[#586B54] h-full" style={{ width: `${metrics.handBalance.thumbPercent}%` }} />
+            <div className="bg-[#A3B18A] h-full" style={{ width: `${metrics.handBalance.rightPercent}%` }} />
           </div>
         </div>
       </div>
@@ -203,27 +208,27 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
         <div
           className="lg:col-span-7 rounded-2xl p-6 border shadow-sm flex flex-col gap-5"
           style={{
-            backgroundColor: '#315C45',
-            borderColor: '#F6F5EF',
-            color: '#F6F5EF',
+            backgroundColor: p.isDark ? '#232E1A' : '#EDE8F3',
+            borderColor: p.border,
+            color: p.text,
           }}
         >
-          <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: '#B59B7A' }}>
+          <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: p.border }}>
             <div>
-              <h3 className="font-bold text-sm tracking-wide uppercase flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#B59B7A]" />
+              <h3 className="font-bold text-sm tracking-wide uppercase flex items-center gap-2" style={{ color: p.text }}>
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.primary }} />
                 Finger Load & Accuracy Distribution
               </h3>
-              <p className="text-[11px] opacity-80 mt-0.5">
+              <p className="text-[11px] opacity-80 mt-0.5" style={{ color: p.textMuted }}>
                 Anatomical keystroke attribution & error concentration
               </p>
             </div>
             <span
               className="text-[10px] font-bold px-3 py-1 rounded-full border"
               style={{
-                backgroundColor: '#B59B7A',
-                borderColor: '#F6F5EF',
-                color: '#315C45',
+                backgroundColor: p.isDark ? '#1C2515' : '#F2E8CF',
+                borderColor: p.border,
+                color: p.text,
               }}
             >
               9 REGIONS
@@ -242,9 +247,10 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
                   onClick={() => setSelectedFinger(isSelected ? null : id)}
                   className="p-3 rounded-xl border transition-all cursor-pointer flex flex-col gap-2"
                   style={{
-                    backgroundColor: isSelected ? '#B59B7A' : '#315C45',
-                    borderColor: '#F6F5EF',
-                    color: isSelected ? '#315C45' : '#F6F5EF',
+                    backgroundColor: isSelected ? p.primary : (p.isDark ? '#1C2515' : '#F2E8CF'),
+                    borderColor: p.border,
+                    color: isSelected ? p.activeBtnText : p.text,
+                    boxShadow: isSelected ? p.tubelightGlow : undefined,
                   }}
                 >
                   <div className="flex items-center justify-between text-xs">
@@ -253,7 +259,7 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
                       <span
                         className="text-[10px] uppercase px-2 py-0.5 rounded-full border font-bold"
                         style={{
-                          borderColor: isSelected ? '#315C45' : '#F6F5EF',
+                          borderColor: p.border,
                         }}
                       >
                         {hand === 'thumb' ? 'Thumb' : `${hand} hand`}
@@ -274,17 +280,17 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
                   </div>
 
                   {/* Progress Bar */}
-                  <div className="w-full h-2 bg-black/20 rounded-full flex overflow-hidden">
+                  <div className="w-full h-2 bg-[#A3B18A]/30 rounded-full flex overflow-hidden">
                     <div
                       className="h-full transition-all duration-300 rounded-full"
                       style={{
                         width: `${Math.min(100, stat.percentage * 2.5)}%`,
-                        backgroundColor: isSelected ? '#315C45' : '#F6F5EF',
+                        backgroundColor: p.primary,
                       }}
                     />
                     {stat.errors > 0 && (
                       <div
-                        className="h-full transition-all duration-300 bg-[#B59B7A]"
+                        className="h-full transition-all duration-300 bg-red-500"
                         style={{ width: `${Math.min(40, (stat.errors / Math.max(1, stat.count)) * 100)}%` }}
                         title={`${stat.errors} errors`}
                       />
@@ -302,25 +308,25 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
           <div
             className="rounded-2xl p-6 border shadow-sm"
             style={{
-              backgroundColor: '#315C45',
-              borderColor: '#F6F5EF',
-              color: '#F6F5EF',
+              backgroundColor: p.isDark ? '#232E1A' : '#EDE8F3',
+              borderColor: p.border,
+              color: p.text,
             }}
           >
-            <div className="flex items-center justify-between border-b pb-3 mb-4" style={{ borderColor: '#B59B7A' }}>
+            <div className="flex items-center justify-between border-b pb-3 mb-4" style={{ borderColor: p.border }}>
               <div>
-                <h3 className="font-bold text-sm tracking-wide uppercase flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#B59B7A]" />
+                <h3 className="font-bold text-sm tracking-wide uppercase flex items-center gap-2" style={{ color: p.text }}>
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.primary }} />
                   Latency Histogram
                 </h3>
-                <p className="text-[11px] opacity-80 mt-0.5">
+                <p className="text-[11px] opacity-80 mt-0.5" style={{ color: p.textMuted }}>
                   Flight time distribution by millisecond bin
                 </p>
               </div>
             </div>
 
             {/* Vertical Bar Chart */}
-            <div className="h-36 flex items-end justify-between gap-3 pt-4 border-b pb-2" style={{ borderColor: '#B59B7A' }}>
+            <div className="h-36 flex items-end justify-between gap-3 pt-4 border-b pb-2" style={{ borderColor: p.border }}>
               {metrics.latencyHistogram.map((bin) => {
                 const heightPercent = Math.max(8, Math.round((bin.count / maxHistoCount) * 100));
                 return (
@@ -329,10 +335,11 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
                       {bin.count}
                     </span>
                     <div
-                      className="w-full rounded-t-lg transition-all duration-300 relative border border-[#F6F5EF]"
+                      className="w-full rounded-t-lg transition-all duration-300 relative border"
                       style={{
                         height: `${heightPercent}%`,
-                        backgroundColor: '#B59B7A',
+                        backgroundColor: p.primary,
+                        borderColor: p.border,
                       }}
                     />
                     <span className="text-[10px] text-center font-bold">
@@ -342,7 +349,7 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
                 );
               })}
             </div>
-            <div className="flex items-center justify-between text-xs opacity-80 mt-3">
+            <div className="flex items-center justify-between text-xs opacity-80 mt-3" style={{ color: p.textMuted }}>
               <span>Fast (&lt;100ms)</span>
               <span>Pause (&gt;250ms)</span>
             </div>
@@ -352,27 +359,27 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
           <div
             className="rounded-2xl p-6 border shadow-sm flex-1 flex flex-col justify-between"
             style={{
-              backgroundColor: '#315C45',
-              borderColor: '#F6F5EF',
-              color: '#F6F5EF',
+              backgroundColor: p.isDark ? '#232E1A' : '#EDE8F3',
+              borderColor: p.border,
+              color: p.text,
             }}
           >
-            <div className="flex items-center justify-between border-b pb-3 mb-4" style={{ borderColor: '#B59B7A' }}>
+            <div className="flex items-center justify-between border-b pb-3 mb-4" style={{ borderColor: p.border }}>
               <div>
-                <h3 className="font-bold text-sm tracking-wide uppercase flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#B59B7A]" />
+                <h3 className="font-bold text-sm tracking-wide uppercase flex items-center gap-2" style={{ color: p.text }}>
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.primary }} />
                   Error Breakdown
                 </h3>
-                <p className="text-[11px] opacity-80 mt-0.5">
+                <p className="text-[11px] opacity-80 mt-0.5" style={{ color: p.textMuted }}>
                   Typing error categories
                 </p>
               </div>
               <span
                 className="text-xs font-bold px-2.5 py-1 rounded-full border"
                 style={{
-                  backgroundColor: '#B59B7A',
-                  borderColor: '#F6F5EF',
-                  color: '#315C45',
+                  backgroundColor: p.isDark ? '#1C2515' : '#F2E8CF',
+                  borderColor: p.border,
+                  color: p.text,
                 }}
               >
                 {totalErrors} Total
@@ -390,11 +397,12 @@ export const AdvancedMetricsDashboard: React.FC<AdvancedMetricsDashboardProps> =
                   <span>{item.label}</span>
                   <div className="flex items-center gap-2">
                     <span className="font-bold">{item.count}</span>
-                    <div className="w-20 h-2 bg-black/20 rounded-full overflow-hidden">
+                    <div className="w-20 h-2 bg-[#A3B18A]/30 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-[#F6F5EF] rounded-full"
+                        className="h-full rounded-full"
                         style={{
                           width: `${totalErrors > 0 ? (item.count / totalErrors) * 100 : 0}%`,
+                          backgroundColor: p.primary,
                         }}
                       />
                     </div>

@@ -17,7 +17,7 @@ import { soundEngine } from '../utils/audio';
 import { getFingerForKey, classifyError } from '../utils/fingerMapping';
 import { calculateAdvancedMetrics } from '../utils/metricsCalculator';
 import { translations } from '../utils/translations';
-import { THEMES } from '../utils/themeConfig';
+import { THEMES, getPalette } from '../utils/themeConfig';
 
 interface TypingAreaProps {
   testMode: TestMode;
@@ -79,6 +79,8 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
 
   // Stats tracking
   const [startTime, setStartTime] = useState<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const isTestFinishedRef = useRef<boolean>(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [liveWpm, setLiveWpm] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
@@ -113,6 +115,7 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
   const activeTestLang: AppLanguage = (testLang === 'fa' ? 'fa' : 'en');
   const currentTheme = THEMES[theme] || THEMES.nima_custom;
   const themeStyle = isDark ? currentTheme.dark : currentTheme.light;
+  const p = getPalette(themeMode);
 
   // Initialize test text
   const initializeTest = useCallback(() => {
@@ -140,6 +143,8 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
     setTypedHistory([]);
     setCurrentInput('');
     setStartTime(null);
+    startTimeRef.current = null;
+    isTestFinishedRef.current = false;
     setElapsedSeconds(0);
     setLiveWpm(0);
     setCurrentStreak(0);
@@ -174,28 +179,46 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
   };
 
   // Test completion calculation
-  const finishTest = useCallback(() => {
+  const finishTest = useCallback((
+    overrideHistory?: string[],
+    overrideInput?: string,
+    overrideWordIndex?: number,
+    overrideCorrectKeys?: number,
+    overrideTotalKeys?: number
+  ) => {
+    if (isTestFinishedRef.current) return;
+    isTestFinishedRef.current = true;
     setIsTestActive(false);
 
-    const duration = startTime ? Math.max(1, (Date.now() - startTime) / 1000) : 1;
-    const finalAccuracy = totalKeystrokes > 0 ? (correctKeystrokes / totalKeystrokes) * 100 : 100;
+    const now = Date.now();
+    const effectiveHistory = overrideHistory ?? typedHistory;
+    const effectiveInput = overrideInput ?? currentInput;
+    const effectiveWordIndex = overrideWordIndex ?? currentWordIndex;
+    const effectiveCorrectKeys = overrideCorrectKeys ?? correctKeystrokes;
+    const effectiveTotalKeys = overrideTotalKeys ?? totalKeystrokes;
 
-    // Calculate standard Net WPM
+    const start = startTimeRef.current ?? startTime ?? (now - 1000);
+    const measuredDuration = Math.max(0.5, (now - start) / 1000);
+    const duration = testMode === 'time' ? timeDuration : measuredDuration;
+    const finalAccuracy = effectiveTotalKeys > 0 ? (effectiveCorrectKeys / effectiveTotalKeys) * 100 : 100;
+
+    // Calculate standard Net WPM (Monkeytype formula: 5 characters per word)
     let totalCorrectChars = 0;
-    typedHistory.forEach((word, idx) => {
+    effectiveHistory.forEach((word, idx) => {
       const target = words[idx];
       if (word === target) {
-        totalCorrectChars += word.length + 1; // including space
+        const isLast = idx === words.length - 1;
+        totalCorrectChars += word.length + (isLast ? 0 : 1);
       }
     });
     // Add current input correct characters
-    const targetWord = words[currentWordIndex] || '';
-    if (currentInput === targetWord) {
-      totalCorrectChars += currentInput.length;
+    const targetWord = words[effectiveWordIndex] || '';
+    if (effectiveInput && effectiveInput === targetWord) {
+      totalCorrectChars += effectiveInput.length;
     }
 
-    const netWpm = Math.max(0, Math.round((totalCorrectChars / 5) / (duration / 60)));
-    const rawWpm = Math.max(0, Math.round(((totalKeystrokes) / 5) / (duration / 60)));
+    const netWpm = duration > 0 ? Math.max(0, Math.round((totalCorrectChars / 5) / (duration / 60))) : 0;
+    const rawWpm = duration > 0 ? Math.max(0, Math.round((effectiveTotalKeys / 5) / (duration / 60))) : 0;
 
     // Multi-dimensional Biometrics Calculation
     const advancedMetrics = calculateAdvancedMetrics(keystrokeEventsRef.current, timeline);
@@ -217,11 +240,11 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
       testMode,
       modeDetail,
       characters: {
-        correct: correctKeystrokes,
+        correct: effectiveCorrectKeys,
         incorrect: errorKeystrokes,
         extra: 0,
         missed: 0,
-        total: totalKeystrokes,
+        total: effectiveTotalKeys,
       },
       keyStats,
       timeline,
@@ -241,31 +264,55 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
     currentInput,
     timeline,
     testMode,
+    timeDuration,
+    wordCount,
+    quoteLength,
+    codeLang,
     peakStreak,
     setIsTestActive,
     onTestComplete,
+    keyStats,
   ]);
 
   // Timer Tick (100ms interval for ultra-smooth WPM calculation)
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
 
-    if (isTestActive && startTime) {
+    if (isTestActive) {
       interval = setInterval(() => {
         const now = Date.now();
-        const duration = (now - startTime) / 1000;
+        const start = startTimeRef.current ?? startTime;
+        if (!start) return;
+
+        const duration = (now - start) / 1000;
         setElapsedSeconds(duration);
 
-        // Calculate rolling Net WPM
+        // Auto-end for 'time' mode
+        if (testMode === 'time' && duration >= timeDuration) {
+          finishTest();
+          return;
+        }
+
+        // Calculate rolling Net WPM (Monkeytype formula)
         let totalChars = 0;
         typedHistory.forEach((word, idx) => {
           if (word === words[idx]) {
-            totalChars += word.length + 1;
+            const isLast = idx === words.length - 1;
+            totalChars += word.length + (isLast ? 0 : 1);
           }
         });
-        if (currentInput === words[currentWordIndex]) {
-          totalChars += currentInput.length;
+
+        // Add real-time correct characters in active word
+        const targetWord = words[currentWordIndex] || '';
+        let currentWordMatchCount = 0;
+        for (let i = 0; i < currentInput.length; i++) {
+          if (i < targetWord.length && currentInput[i] === targetWord[i]) {
+            currentWordMatchCount++;
+          } else {
+            break;
+          }
         }
+        totalChars += currentWordMatchCount;
 
         const liveNetWpm = duration > 0 ? Math.max(0, Math.round((totalChars / 5) / (duration / 60))) : 0;
         const liveRawWpm = duration > 0 ? Math.max(0, Math.round((totalKeystrokes / 5) / (duration / 60))) : 0;
@@ -315,11 +362,6 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
             },
           ]);
         }
-
-        // Auto-end for 'time' mode
-        if (testMode === 'time' && duration >= timeDuration) {
-          finishTest();
-        }
       }, 100);
     }
 
@@ -363,10 +405,11 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
 
     const now = Date.now();
 
-    // Start timer on first keystroke
-    if (!isTestActive && !startTime) {
-      setIsTestActive(true);
+    // Start timer on first keystroke synchronously
+    if (!startTimeRef.current) {
+      startTimeRef.current = now;
       setStartTime(now);
+      setIsTestActive(true);
     }
 
     // Measure keystroke flight latency (inter-keystroke interval)
@@ -385,6 +428,8 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
       e.preventDefault();
       if (currentInput.length === 0) return;
 
+      const isWordCorrect = currentInput === targetWord;
+
       soundEngine.playKey(' ', true);
       recentKeystrokesRef.current.push({ time: now, count: 1 });
 
@@ -395,16 +440,27 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
         expected: ' ',
         timestamp: now,
         latencyMs,
-        isCorrect: currentInput === targetWord,
+        isCorrect: isWordCorrect,
         finger: 'thumb',
       });
+
+      const updatedTotalKeys = totalKeystrokes + 1;
+      const updatedCorrectKeys = correctKeystrokes + (isWordCorrect ? 1 : 0);
+      const updatedErrorKeys = errorKeystrokes + (isWordCorrect ? 0 : 1);
+
+      setTotalKeystrokes(updatedTotalKeys);
+      if (isWordCorrect) {
+        setCorrectKeystrokes(updatedCorrectKeys);
+      } else {
+        setErrorKeystrokes(updatedErrorKeys);
+      }
 
       const newHistory = [...typedHistory, currentInput];
       setTypedHistory(newHistory);
       setCurrentInput('');
 
-      if (currentWordIndex + 1 >= words.length) {
-        finishTest();
+      if (currentWordIndex + 1 >= words.length && testMode !== 'time') {
+        finishTest(newHistory, '', currentWordIndex + 1, updatedCorrectKeys, updatedTotalKeys);
       } else {
         setCurrentWordIndex((prev) => prev + 1);
       }
@@ -491,17 +547,28 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
         onKeyStatsUpdate(keyStatsRef.current);
       }
 
-      setTotalKeystrokes((prev) => prev + 1);
+      const updatedTotalKeys = totalKeystrokes + 1;
+      const updatedCorrectKeys = correctKeystrokes + (isCorrect ? 1 : 0);
+
+      setTotalKeystrokes(updatedTotalKeys);
       recentKeystrokesRef.current.push({ time: now, count: 1 });
-      setCurrentInput((prev) => prev + e.key);
+
+      const nextInput = currentInput + e.key;
+      setCurrentInput(nextInput);
 
       // Finish test if last word matches
       if (
         currentWordIndex === words.length - 1 &&
-        currentInput + e.key === targetWord &&
+        nextInput === targetWord &&
         testMode !== 'time'
       ) {
-        setTimeout(() => finishTest(), 50);
+        finishTest(
+          [...typedHistory, targetWord],
+          '',
+          currentWordIndex,
+          updatedCorrectKeys,
+          updatedTotalKeys
+        );
       }
     }
   };
@@ -559,7 +626,8 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
   return (
     <div
       onClick={handleContainerClick}
-      className="relative w-full cursor-text overflow-hidden transition-all duration-300 py-6 text-[#F7F4EF]"
+      className="relative w-full cursor-text overflow-hidden transition-all duration-300 py-6"
+      style={{ color: p.text }}
     >
       {/* Hidden zero-latency input element */}
       <input
@@ -579,18 +647,18 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
       {/* Subtle Progress / Timer Indicator (Monkeytype style) */}
       <div className="flex items-center justify-between font-mono mb-4 px-2 select-none">
         <div className="flex items-center gap-3">
-          <span className="text-2xl sm:text-3xl font-bold font-mono text-[#315C45]">
+          <span className="text-2xl sm:text-3xl font-bold font-mono" style={{ color: p.text }}>
             {progressText}
           </span>
           {quoteMeta && (
-            <span className="text-xs text-[#B59B7A] truncate max-w-[200px] sm:max-w-md italic hidden md:inline">
+            <span className="text-xs truncate max-w-[200px] sm:max-w-md italic hidden md:inline" style={{ color: p.textMuted }}>
               — {quoteMeta.source}
             </span>
           )}
         </div>
 
         {isTestActive && (
-          <div className="text-xs text-[#B59B7A] font-mono flex items-center gap-3 font-bold">
+          <div className="text-xs font-mono flex items-center gap-3 font-bold" style={{ color: p.textMuted }}>
             <span>
               {liveWpm} <span className="opacity-80 text-[10px]">WPM</span>
             </span>
@@ -612,14 +680,15 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
         }`}
         style={{ scrollBehavior: 'smooth' }}
       >
-        {/* Crisp Smooth Caret in Secondary #315C45 */}
+        {/* Tubelight Caret with light blue glow 20px and 70% opacity */}
         <div
-          className="absolute w-1 rounded-full transition-all duration-75 pointer-events-none bg-[#315C45] shadow-[0_0_8px_rgba(49,92,69,0.7)]"
+          className="absolute w-1 rounded-full transition-all duration-75 pointer-events-none bg-[#38BDF8]"
           style={{
             left: `${caretPos.left}px`,
             top: `${caretPos.top + 2}px`,
             height: `${caretPos.height - 4}px`,
             opacity: !isTestActive ? 0.9 : 1,
+            boxShadow: '0 0 20px rgba(56, 189, 248, 0.7)',
           }}
         />
 
@@ -643,13 +712,13 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
                     key={wIdx}
                     className={`inline-block whitespace-nowrap px-1.5 py-0.5 rounded-lg transition-colors ${
                       isMatch
-                        ? 'text-[#315C45] font-bold'
-                        : 'text-[#B59B7A] line-through decoration-[#B59B7A] font-bold'
+                        ? 'text-[#283618] font-bold'
+                        : 'text-[#A3B18A] line-through decoration-[#A3B18A] font-bold'
                     }`}
                   >
                     {word}
                     {pastInput.length > word.length && (
-                      <span className="text-[#315C45] font-mono text-base mr-1 font-bold">
+                      <span className="text-[#283618] font-mono text-base mr-1 font-bold">
                         ({pastInput.slice(word.length)})
                       </span>
                     )}
@@ -691,7 +760,14 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
                     <span ref={activeCharRef} className="inline-block w-0 h-4 opacity-0 pointer-events-none" />
 
                     {hasMistake && (
-                      <span className="text-[#315C45] bg-[#315C45]/20 px-1 rounded mx-0.5 font-bold underline decoration-[#315C45]">
+                      <span
+                        className="px-1 rounded mx-0.5 font-bold underline"
+                        style={{
+                          backgroundColor: p.lavender,
+                          color: p.text,
+                          textDecorationColor: p.primary,
+                        }}
+                      >
                         {mistakeTyped}
                       </span>
                     )}
@@ -704,7 +780,13 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
 
                     {/* Extra characters beyond target length */}
                     {currentInput.length > word.length && (
-                      <span className="text-[#315C45] bg-[#315C45]/20 px-1 rounded font-mono text-base font-bold mr-1">
+                      <span
+                        className="px-1 rounded font-mono text-base font-bold mr-1"
+                        style={{
+                          backgroundColor: p.lavender,
+                          color: p.text,
+                        }}
+                      >
                         {currentInput.slice(word.length)}
                       </span>
                     )}
@@ -751,7 +833,9 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
                       if (typedChar === char) {
                         charClass = `${themeStyle.textPrimary} font-bold drop-shadow-xs`;
                       } else {
-                        charClass = 'text-[#315C45] bg-[#315C45]/20 rounded-xs underline decoration-[#315C45] font-bold';
+                        charClass = p.isDark
+                          ? 'text-[#F2E8CF] bg-[#7F1D1D] rounded-xs underline decoration-[#EF4444] font-bold'
+                          : 'text-[#283618] bg-[#EDE8F3] rounded-xs underline decoration-[#A3B18A] font-bold';
                       }
                     } else if (cIdx === currentInput.length) {
                       isCurrentChar = true;
@@ -764,10 +848,12 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
                     if (cIdx < pastInput.length) {
                       charClass =
                         pastInput[cIdx] === char
-                          ? 'text-[#315C45] font-bold'
-                          : 'text-[#B59B7A] line-through decoration-[#B59B7A] font-bold';
+                          ? `${themeStyle.textPrimary} font-bold`
+                          : p.isDark
+                          ? 'text-[#EF4444] line-through decoration-[#EF4444] font-bold'
+                          : 'text-[#A3B18A] line-through decoration-[#A3B18A] font-bold';
                     } else {
-                      charClass = 'text-[#315C45]/80 font-bold';
+                      charClass = p.isDark ? 'text-[#F2E8CF]/60 font-bold' : 'text-[#283618]/70 font-bold';
                     }
                   } else {
                     // Future words: high readability!
@@ -787,12 +873,23 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
 
                 {/* Extra typed characters beyond word length */}
                 {isCurrentWord && currentInput.length > word.length && (
-                  <span className="text-[#315C45] bg-[#315C45]/20 px-1 rounded font-mono text-lg ml-0.5 font-bold">
+                  <span
+                    className="px-1 rounded font-mono text-lg ml-0.5 font-bold"
+                    style={{
+                      backgroundColor: p.lavender,
+                      color: p.text,
+                    }}
+                  >
                     {currentInput.slice(word.length)}
                   </span>
                 )}
                 {isPastWord && pastInput.length > word.length && (
-                  <span className="text-[#315C45]/80 line-through font-mono text-lg ml-0.5 font-bold">
+                  <span
+                    className="line-through font-mono text-lg ml-0.5 font-bold"
+                    style={{
+                      color: p.textMuted,
+                    }}
+                  >
                     {pastInput.slice(word.length)}
                   </span>
                 )}
@@ -807,7 +904,13 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
         <button
           onClick={onRestart}
           type="button"
-          className="p-3 text-[#315C45] hover:text-[#F6F5EF] hover:bg-[#315C45] rounded-xl transition-all active:scale-95 cursor-pointer border border-[#315C45]"
+          className="tubelight-btn p-3.5 rounded-xl transition-all active:scale-95 cursor-pointer border"
+          style={{
+            backgroundColor: p.primary,
+            borderColor: p.border,
+            color: p.activeBtnText,
+            boxShadow: p.tubelightGlow,
+          }}
           title="Restart Test (Tab + Enter)"
         >
           <svg
@@ -826,15 +929,29 @@ export const TypingArea: React.FC<TypingAreaProps> = ({
         </button>
 
         {/* Keyboard Shortcuts Hint */}
-        <div className="flex items-center gap-2 text-xs text-[#315C45] font-mono">
-          <kbd className="px-2 py-0.5 rounded bg-[#315C45] border border-[#B59B7A] text-[#F6F5EF] font-bold">
+        <div className="flex items-center gap-2 text-xs font-mono font-bold" style={{ color: p.text }}>
+          <kbd
+            className="px-2 py-0.5 rounded font-bold border"
+            style={{
+              backgroundColor: p.cardBg,
+              borderColor: p.border,
+              color: p.text,
+            }}
+          >
             tab
           </kbd>
           <span>&gt;</span>
-          <kbd className="px-2 py-0.5 rounded bg-[#315C45] border border-[#B59B7A] text-[#F6F5EF] font-bold">
+          <kbd
+            className="px-2 py-0.5 rounded font-bold border"
+            style={{
+              backgroundColor: p.cardBg,
+              borderColor: p.border,
+              color: p.text,
+            }}
+          >
             enter
           </kbd>
-          <span>- restart test</span>
+          <span className="font-medium" style={{ color: p.textMuted }}>- restart test</span>
         </div>
       </div>
     </div>

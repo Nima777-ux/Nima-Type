@@ -1,19 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { TestResult, AppLanguage } from '../types';
+import { TestResult, AppLanguage, ThemeMode } from '../types';
 import {
   RotateCcw,
   ChevronRight,
   AlignLeft,
   Camera,
   Check,
+  Mail,
+  Sparkles,
 } from 'lucide-react';
 import { AdvancedMetricsDashboard } from './AdvancedMetricsDashboard';
+import { getPalette } from '../utils/themeConfig';
 
 interface MonkeytypeResultsProps {
   result: TestResult;
   onRestart: () => void;
   onNextTest: () => void;
   appLang?: AppLanguage;
+  themeMode?: ThemeMode;
+  onOpenContact?: () => void;
 }
 
 export const MonkeytypeResults: React.FC<MonkeytypeResultsProps> = ({
@@ -21,7 +26,10 @@ export const MonkeytypeResults: React.FC<MonkeytypeResultsProps> = ({
   onRestart,
   onNextTest,
   appLang = 'en',
+  themeMode = 'light',
+  onOpenContact,
 }) => {
+  const p = getPalette(themeMode);
   const [hoveredPoint, setHoveredPoint] = useState<{
     second: number;
     wpm: number;
@@ -141,25 +149,28 @@ Time: ${formatTime(durationSeconds)}`;
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto py-6 px-4 animate-in fade-in duration-300 select-none text-[#315C45]">
+    <div
+      className="w-full max-w-5xl mx-auto py-6 px-4 animate-in fade-in duration-300 select-none"
+      style={{ color: p.text }}
+    >
       {/* Top Main Results Area: Left WPM/ACC + Right Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
         {/* Left Side: wpm and acc */}
         <div className="lg:col-span-3 flex flex-col justify-center space-y-6">
           <div>
-            <div className="text-xl sm:text-2xl font-mono text-[#B59B7A] lowercase font-bold">
+            <div className="text-xl sm:text-2xl font-mono lowercase font-bold" style={{ color: p.textMuted }}>
               wpm
             </div>
-            <div className="text-6xl sm:text-7xl lg:text-8xl font-mono font-bold text-[#315C45] tracking-tight leading-none mt-1">
+            <div className="text-6xl sm:text-7xl lg:text-8xl font-mono font-bold tracking-tight leading-none mt-1" style={{ color: p.text }}>
               {wpm}
             </div>
           </div>
 
           <div>
-            <div className="text-xl sm:text-2xl font-mono text-[#B59B7A] lowercase font-bold">
+            <div className="text-xl sm:text-2xl font-mono lowercase font-bold" style={{ color: p.textMuted }}>
               acc
             </div>
-            <div className="text-6xl sm:text-7xl lg:text-8xl font-mono font-bold text-[#315C45] tracking-tight leading-none mt-1">
+            <div className="text-6xl sm:text-7xl lg:text-8xl font-mono font-bold tracking-tight leading-none mt-1" style={{ color: p.text }}>
               {accuracy}%
             </div>
           </div>
@@ -169,8 +180,8 @@ Time: ${formatTime(durationSeconds)}`;
         <div
           className="lg:col-span-9 relative w-full overflow-hidden rounded-2xl border p-2 sm:p-4 shadow-sm"
           style={{
-            backgroundColor: '#F6F5EF',
-            borderColor: '#315C45',
+            backgroundColor: p.isDark ? '#232E1A' : '#F2E8CF',
+            borderColor: p.border,
           }}
         >
           <svg
@@ -179,8 +190,8 @@ Time: ${formatTime(durationSeconds)}`;
           >
             <defs>
               <linearGradient id="wpmAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#315C45" stopOpacity="0.35" />
-                <stop offset="100%" stopColor="#315C45" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="#A3B18A" stopOpacity="0.45" />
+                <stop offset="100%" stopColor="#A3B18A" stopOpacity="0.0" />
               </linearGradient>
             </defs>
 
@@ -196,10 +207,10 @@ Time: ${formatTime(durationSeconds)}`;
                     y1={yVal}
                     x2={chartWidth - padRight}
                     y2={yVal}
-                    stroke="#315C45"
+                    stroke="#A3B18A"
                     strokeWidth="1"
                     strokeDasharray="2 2"
-                    opacity="0.3"
+                    opacity="0.4"
                   />
                   {/* Left tick: WPM */}
                   <text
@@ -207,7 +218,7 @@ Time: ${formatTime(durationSeconds)}`;
                     y={yVal + 3}
                     textAnchor="end"
                     fontSize="10"
-                    fill="#B59B7A"
+                    fill="#586B54"
                     fontFamily="monospace"
                   >
                     {tickWpm}
@@ -218,7 +229,7 @@ Time: ${formatTime(durationSeconds)}`;
                     y={yVal + 3}
                     textAnchor="start"
                     fontSize="10"
-                    fill="#315C45"
+                    fill="#283618"
                     fontFamily="monospace"
                   >
                     {tickErr}
@@ -234,7 +245,7 @@ Time: ${formatTime(durationSeconds)}`;
               transform="rotate(-90)"
               textAnchor="middle"
               fontSize="9"
-              fill="#B59B7A"
+              fill="#586B54"
               fontFamily="monospace"
             >
               Words per Minute
@@ -247,7 +258,7 @@ Time: ${formatTime(durationSeconds)}`;
               transform="rotate(90)"
               textAnchor="middle"
               fontSize="9"
-              fill="#315C45"
+              fill="#283618"
               fontFamily="monospace"
             >
               Errors
@@ -263,7 +274,7 @@ Time: ${formatTime(durationSeconds)}`;
                   y={chartHeight - 8}
                   textAnchor="middle"
                   fontSize="9"
-                  fill="#B59B7A"
+                  fill="#586B54"
                   fontFamily="monospace"
                 >
                   {pt.second}
@@ -278,19 +289,19 @@ Time: ${formatTime(durationSeconds)}`;
               <path
                 d={rawPath}
                 fill="none"
-                stroke="#B59B7A"
+                stroke="#586B54"
                 strokeWidth="1.5"
                 strokeDasharray="3 3"
                 opacity="0.8"
               />
             )}
 
-            {/* WPM Line in Secondary (#315C45) */}
+            {/* WPM Line in Primary */}
             {wpmPath && (
               <path
                 d={wpmPath}
                 fill="none"
-                stroke="#315C45"
+                stroke={p.primary}
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -309,7 +320,7 @@ Time: ${formatTime(durationSeconds)}`;
                     y={y}
                     textAnchor="middle"
                     dominantBaseline="central"
-                    fill="#315C45"
+                    fill="#EF4444"
                     fontSize="13"
                     fontWeight="bold"
                     fontFamily="monospace"
@@ -330,7 +341,10 @@ Time: ${formatTime(durationSeconds)}`;
                   cx={x}
                   cy={y}
                   r="4"
-                  className="cursor-pointer transition-all hover:r-5.5 fill-[#315C45] stroke-[#B59B7A] stroke-1.5"
+                  className="cursor-pointer transition-all hover:r-5.5"
+                  fill={p.primary}
+                  stroke={p.isDark ? '#172012' : '#F2E8CF'}
+                  strokeWidth="1.5"
                   onMouseEnter={() =>
                     setHoveredPoint({
                       second: pt.second,
@@ -352,9 +366,10 @@ Time: ${formatTime(durationSeconds)}`;
             <div
               className="absolute pointer-events-none border text-xs font-mono px-3 py-2 rounded-xl shadow-lg z-20"
               style={{
-                backgroundColor: '#315C45',
-                borderColor: '#B59B7A',
-                color: '#F6F5EF',
+                backgroundColor: p.cardBg,
+                borderColor: p.border,
+                color: p.text,
+                boxShadow: p.tubelightGlow,
                 left: `${(hoveredPoint.x / chartWidth) * 100}%`,
                 top: `${(hoveredPoint.y / chartHeight) * 100 - 15}%`,
                 transform: 'translate(-50%, -100%)',
@@ -364,7 +379,7 @@ Time: ${formatTime(durationSeconds)}`;
               <div>WPM: {hoveredPoint.wpm}</div>
               <div className="opacity-80">Raw: {hoveredPoint.rawWpm}</div>
               {hoveredPoint.errors > 0 && (
-                <div className="underline font-bold">Errors: {hoveredPoint.errors}</div>
+                <div className="underline font-bold text-[#EF4444]">Errors: {hoveredPoint.errors}</div>
               )}
             </div>
           )}
@@ -374,59 +389,65 @@ Time: ${formatTime(durationSeconds)}`;
       {/* Under-Chart Stats Columns */}
       <div
         className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-6 pt-8 pb-6 border-b font-mono"
-        style={{ borderColor: '#315C45' }}
+        style={{ borderColor: p.border }}
       >
         <div>
-          <div className="text-xs text-[#B59B7A] lowercase mb-1 font-bold">test type</div>
-          <div className="text-lg font-bold text-[#315C45] capitalize">
+          <div className="text-xs lowercase mb-1 font-bold" style={{ color: p.textMuted }}>test type</div>
+          <div className="text-lg font-bold capitalize" style={{ color: p.text }}>
             {testMode} {modeDetail || durationSeconds}
           </div>
-          <div className="text-xs text-[#B59B7A] font-bold">
+          <div className="text-xs font-bold" style={{ color: p.textMuted }}>
             {appLang === 'fa' ? 'persian' : 'english'}
           </div>
         </div>
 
         <div>
-          <div className="text-xs text-[#B59B7A] lowercase mb-1 font-bold">other</div>
-          <div className="text-lg font-bold text-[#315C45]">
+          <div className="text-xs lowercase mb-1 font-bold" style={{ color: p.textMuted }}>other</div>
+          <div className="text-lg font-bold" style={{ color: p.text }}>
             {characters.incorrect === 0 ? 'clean streak' : 'afk / standard'}
           </div>
-          <div className="text-xs text-[#B59B7A]">standard pace</div>
+          <div className="text-xs" style={{ color: p.textMuted }}>standard pace</div>
         </div>
 
         <div>
-          <div className="text-xs text-[#B59B7A] lowercase mb-1 font-bold">raw</div>
-          <div className="text-3xl font-bold text-[#315C45]">{rawWpm}</div>
+          <div className="text-xs lowercase mb-1 font-bold" style={{ color: p.textMuted }}>raw</div>
+          <div className="text-3xl font-bold" style={{ color: p.text }}>{rawWpm}</div>
         </div>
 
         <div>
-          <div className="text-xs text-[#B59B7A] lowercase mb-1 font-bold">characters</div>
-          <div className="text-2xl font-bold text-[#315C45]">
+          <div className="text-xs lowercase mb-1 font-bold" style={{ color: p.textMuted }}>characters</div>
+          <div className="text-2xl font-bold" style={{ color: p.text }}>
             {characters.correct}/{characters.incorrect}/{characters.extra}/{characters.missed}
           </div>
         </div>
 
         <div>
-          <div className="text-xs text-[#B59B7A] lowercase mb-1 font-bold">consistency</div>
-          <div className="text-3xl font-bold text-[#315C45]">{consistency}%</div>
+          <div className="text-xs lowercase mb-1 font-bold" style={{ color: p.textMuted }}>consistency</div>
+          <div className="text-3xl font-bold" style={{ color: p.text }}>{consistency}%</div>
         </div>
 
         <div>
-          <div className="text-xs text-[#B59B7A] lowercase mb-1 font-bold">time</div>
-          <div className="text-3xl font-bold text-[#315C45]">
+          <div className="text-xs lowercase mb-1 font-bold" style={{ color: p.textMuted }}>time</div>
+          <div className="text-3xl font-bold" style={{ color: p.text }}>
             {formatTime(durationSeconds)}
           </div>
-          <div className="text-[10px] text-[#B59B7A]">
+          <div className="text-[10px]" style={{ color: p.textMuted }}>
             {formatTime(durationSeconds)} session
           </div>
         </div>
       </div>
 
       {/* Action Toolbar Below Stats */}
-      <div className="flex items-center justify-center gap-6 py-8">
+      <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 py-8">
         <button
           onClick={onNextTest}
-          className="p-3 text-[#315C45] hover:text-[#F6F5EF] hover:bg-[#315C45] rounded-xl transition-all active:scale-95 cursor-pointer border border-[#315C45]"
+          className="tubelight-btn p-3 rounded-xl transition-all active:scale-95 cursor-pointer border"
+          style={{
+            backgroundColor: p.primary,
+            borderColor: p.border,
+            color: p.activeBtnText,
+            boxShadow: p.tubelightGlow,
+          }}
           title="Next test"
         >
           <ChevronRight className="w-5 h-5" />
@@ -434,7 +455,13 @@ Time: ${formatTime(durationSeconds)}`;
 
         <button
           onClick={onRestart}
-          className="p-3 text-[#315C45] hover:text-[#F6F5EF] hover:bg-[#315C45] rounded-xl transition-all active:scale-95 cursor-pointer border border-[#315C45]"
+          className="tubelight-btn p-3 rounded-xl transition-all active:scale-95 cursor-pointer border"
+          style={{
+            backgroundColor: p.primary,
+            borderColor: p.border,
+            color: p.activeBtnText,
+            boxShadow: p.tubelightGlow,
+          }}
           title="Restart test (Tab + Enter)"
         >
           <RotateCcw className="w-5 h-5" />
@@ -442,11 +469,13 @@ Time: ${formatTime(durationSeconds)}`;
 
         <button
           onClick={() => setShowTelemetry((prev) => !prev)}
-          className={`p-3 rounded-xl transition-all active:scale-95 cursor-pointer border border-[#315C45] ${
-            showTelemetry
-              ? 'text-[#F6F5EF] bg-[#315C45]'
-              : 'text-[#315C45] hover:text-[#F6F5EF] hover:bg-[#315C45]'
-          }`}
+          className="p-3 rounded-xl transition-all active:scale-95 cursor-pointer border"
+          style={{
+            backgroundColor: showTelemetry ? p.cardBg : 'transparent',
+            borderColor: p.border,
+            color: p.text,
+            boxShadow: showTelemetry ? p.tubelightGlow : undefined,
+          }}
           title="Inspect Telemetry & Finger Heatmap"
         >
           <AlignLeft className="w-5 h-5" />
@@ -454,18 +483,40 @@ Time: ${formatTime(durationSeconds)}`;
 
         <button
           onClick={handleCopyCard}
-          className="p-3 text-[#315C45] hover:text-[#F6F5EF] hover:bg-[#315C45] rounded-xl transition-all active:scale-95 cursor-pointer border border-[#315C45]"
+          className="p-3 rounded-xl transition-all active:scale-95 cursor-pointer border hover:opacity-80"
+          style={{
+            borderColor: p.border,
+            color: p.text,
+          }}
           title="Copy result"
         >
-          {copied ? <Check className="w-5 h-5 text-[#F6F5EF]" /> : <Camera className="w-5 h-5" />}
+          {copied ? <Check className="w-5 h-5 text-emerald-500" /> : <Camera className="w-5 h-5" />}
         </button>
+
+        {onOpenContact && (
+          <button
+            onClick={onOpenContact}
+            className="tubelight-btn px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 cursor-pointer transition-all active:scale-95"
+            style={{
+              backgroundColor: p.primary,
+              borderColor: p.border,
+              color: p.activeBtnText,
+              boxShadow: p.tubelightGlow,
+            }}
+            title="Contact Nima Nabizada"
+          >
+            <Mail className="w-4 h-4" />
+            <span>Contact Creator</span>
+            <Sparkles className="w-3.5 h-3.5 text-[#38BDF8]" />
+          </button>
+        )}
       </div>
 
       {/* Expanded Telemetry Section if toggled */}
       {showTelemetry && result.advancedMetrics && (
         <div
           className="pt-4 pb-8 border-t animate-in fade-in duration-300"
-          style={{ borderColor: '#315C45' }}
+          style={{ borderColor: p.border }}
         >
           <AdvancedMetricsDashboard
             metrics={result.advancedMetrics}
@@ -473,18 +524,19 @@ Time: ${formatTime(durationSeconds)}`;
             accuracy={accuracy}
             highestStreak={result.highestStreak}
             onClose={() => setShowTelemetry(false)}
+            themeMode={themeMode}
           />
         </div>
       )}
 
       {/* Shortcut Badges */}
-      <div className="flex items-center justify-center gap-2 pt-6 text-xs text-[#315C45] font-mono">
+      <div className="flex items-center justify-center gap-2 pt-6 text-xs font-mono font-bold" style={{ color: p.text }}>
         <kbd
           className="px-2 py-0.5 rounded border font-bold"
           style={{
-            backgroundColor: '#315C45',
-            borderColor: '#B59B7A',
-            color: '#F6F5EF',
+            backgroundColor: p.cardBg,
+            borderColor: p.border,
+            color: p.text,
           }}
         >
           tab
@@ -493,14 +545,14 @@ Time: ${formatTime(durationSeconds)}`;
         <kbd
           className="px-2 py-0.5 rounded border font-bold"
           style={{
-            backgroundColor: '#315C45',
-            borderColor: '#B59B7A',
-            color: '#F6F5EF',
+            backgroundColor: p.cardBg,
+            borderColor: p.border,
+            color: p.text,
           }}
         >
           enter
         </kbd>
-        <span>- restart test</span>
+        <span className="font-medium" style={{ color: p.textMuted }}>- restart test</span>
       </div>
     </div>
   );

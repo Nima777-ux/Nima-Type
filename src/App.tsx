@@ -21,9 +21,18 @@ import { DesktopAppModal } from './components/DesktopAppModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AuthModal } from './components/AuthModal';
 import { UserProfileModal } from './components/UserProfileModal';
+import { ContactModal } from './components/ContactModal';
+import { getPalette } from './utils/themeConfig';
 import { soundEngine } from './utils/audio';
 import { translations } from './utils/translations';
-import { getCurrentSession, clearSession, updateUserStats } from './utils/authStorage';
+import {
+  getCurrentSession,
+  getCurrentSessionAsync,
+  clearSession,
+  updateUserStats,
+  mapSupabaseUserToUserAccount,
+} from './utils/authStorage';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 import {
   Settings,
   Moon,
@@ -51,8 +60,8 @@ export default function App() {
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<'engine' | 'telemetry' | 'history' | 'settings'>('engine');
 
-  // App & Theming State (Strictly 3 Colors: #F6F5EF, #315C45, #B59B7A)
-  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
+  // App & Theming State (Strictly Sage #A3B18A, Cream #F2E8CF, Lavender #EDE8F3, Tubelight #38BDF8)
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
     try {
       const saved = localStorage.getItem('kinetic_theme_mode');
       return saved === 'dark' ? 'dark' : 'light';
@@ -60,6 +69,15 @@ export default function App() {
       return 'light';
     }
   });
+
+  const setThemeMode = useCallback((mode: ThemeMode) => {
+    setThemeModeState(mode);
+    try {
+      localStorage.setItem('kinetic_theme_mode', mode);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Default language is strictly English as requested
   const [appLang, setAppLang] = useState<AppLanguage>(() => {
@@ -84,6 +102,7 @@ export default function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
   const [showDesktopModal, setShowDesktopModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
 
   // Authentication State: Pop up on start if not logged in
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
@@ -164,6 +183,34 @@ export default function App() {
       console.error('Failed to save test language:', err);
     }
   }, [testLang]);
+
+  // Synchronize with Supabase Auth session & auth state changes
+  useEffect(() => {
+    getCurrentSessionAsync().then((session) => {
+      if (session?.user) {
+        setCurrentUser(session.user);
+        setShowAuthModal(false);
+      }
+    });
+
+    if (isSupabaseConfigured) {
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, sbSession) => {
+        if (sbSession?.user) {
+          const user = mapSupabaseUserToUserAccount(sbSession.user);
+          setCurrentUser(user);
+          setShowAuthModal(false);
+        } else {
+          setCurrentUser(null);
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
+  }, []);
 
   // Sound Profile change effect
   useEffect(() => {
@@ -250,20 +297,25 @@ export default function App() {
   // Latest telemetry fallback for telemetry view tab
   const latestTelemetry: AdvancedMetrics | null = currentResult?.advancedMetrics || history[0]?.advancedMetrics || null;
 
+  const p = getPalette(themeMode);
+
   return (
     <div
       dir={isRTL ? 'rtl' : 'ltr'}
       className="min-h-screen flex flex-col font-mono transition-colors duration-200"
       style={{
-        backgroundColor: '#F6F5EF',
-        color: '#315C45',
+        backgroundColor: p.pageBg,
+        color: p.text,
       }}
     >
       {/* ------------------------------------------------------------- */}
       {/* 1. TOP HEADER                                                 */}
       {/* ------------------------------------------------------------- */}
-      <header className="w-full max-w-6xl mx-auto px-4 sm:px-8 py-5 flex items-center justify-between font-mono select-none">
-        <div className="flex items-center gap-6">
+      <header
+        className="w-full max-w-6xl mx-auto px-4 sm:px-8 py-5 flex items-center justify-between font-mono select-none"
+        style={{ color: p.text }}
+      >
+        <div className="flex items-center gap-4 sm:gap-6">
           {/* Logo & Brand */}
           <div
             onClick={() => {
@@ -272,31 +324,44 @@ export default function App() {
             }}
             className="flex flex-col cursor-pointer group"
           >
-            <span className="text-[10px] text-[#B59B7A] leading-none mb-0.5 tracking-wider font-bold">
+            <span
+              className="text-[10px] leading-none mb-0.5 tracking-wider font-bold"
+              style={{ color: p.textMuted }}
+            >
               nima see
             </span>
             <div className="flex items-center gap-2">
-              <svg className="w-7 h-7 text-[#315C45]" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-7 h-7" style={{ color: p.text }} viewBox="0 0 24 24" fill="currentColor">
                 <path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z" />
               </svg>
-              <span className="text-xl sm:text-2xl font-bold tracking-tight text-[#315C45] lowercase">
+              <span className="text-xl sm:text-2xl font-bold tracking-tight lowercase" style={{ color: p.text }}>
                 nima type
               </span>
             </div>
           </div>
 
           {/* Action Icons next to Logo */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => {
                 setShowResultModal(false);
                 setActiveTab('engine');
               }}
-              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+              className="p-2 rounded-xl border transition-all cursor-pointer"
+              style={
                 activeTab === 'engine' && !showResultModal
-                  ? 'bg-[#315C45] text-[#F6F5EF] border-[#315C45] font-bold'
-                  : 'border-[#315C45] text-[#315C45] hover:bg-[#315C45] hover:text-[#F6F5EF]'
-              }`}
+                  ? {
+                      backgroundColor: p.primary,
+                      borderColor: p.border,
+                      color: p.activeBtnText,
+                      boxShadow: p.tubelightGlow,
+                      fontWeight: 'bold',
+                    }
+                  : {
+                      borderColor: p.border,
+                      color: p.text,
+                    }
+              }
               title="Typing Test"
             >
               <Keyboard className="w-4 h-4" />
@@ -308,11 +373,21 @@ export default function App() {
                   setShowResultModal(true);
                   setActiveTab('engine');
                 }}
-                className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                className="p-2 rounded-xl border transition-all cursor-pointer"
+                style={
                   showResultModal && activeTab === 'engine'
-                    ? 'bg-[#315C45] text-[#F6F5EF] border-[#315C45] font-bold'
-                    : 'border-[#315C45] text-[#315C45] hover:bg-[#315C45] hover:text-[#F6F5EF]'
-                }`}
+                    ? {
+                        backgroundColor: p.primary,
+                        borderColor: p.border,
+                        color: p.activeBtnText,
+                        boxShadow: p.tubelightGlow,
+                        fontWeight: 'bold',
+                      }
+                    : {
+                        borderColor: p.border,
+                        color: p.text,
+                      }
+                }
                 title="View Results Panel"
               >
                 <BarChart3 className="w-4 h-4" />
@@ -324,11 +399,21 @@ export default function App() {
                 setShowResultModal(false);
                 setActiveTab('history');
               }}
-              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+              className="p-2 rounded-xl border transition-all cursor-pointer"
+              style={
                 activeTab === 'history'
-                  ? 'bg-[#315C45] text-[#F6F5EF] border-[#315C45] font-bold'
-                  : 'border-[#315C45] text-[#315C45] hover:bg-[#315C45] hover:text-[#F6F5EF]'
-              }`}
+                  ? {
+                      backgroundColor: p.primary,
+                      borderColor: p.border,
+                      color: p.activeBtnText,
+                      boxShadow: p.tubelightGlow,
+                      fontWeight: 'bold',
+                    }
+                  : {
+                      borderColor: p.border,
+                      color: p.text,
+                    }
+              }
               title="Test History / Leaderboards"
             >
               <Crown className="w-4 h-4" />
@@ -339,11 +424,21 @@ export default function App() {
                 setShowResultModal(false);
                 setActiveTab('telemetry');
               }}
-              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+              className="p-2 rounded-xl border transition-all cursor-pointer"
+              style={
                 activeTab === 'telemetry'
-                  ? 'bg-[#315C45] text-[#F6F5EF] border-[#315C45] font-bold'
-                  : 'border-[#315C45] text-[#315C45] hover:bg-[#315C45] hover:text-[#F6F5EF]'
-              }`}
+                  ? {
+                      backgroundColor: p.primary,
+                      borderColor: p.border,
+                      color: p.activeBtnText,
+                      boxShadow: p.tubelightGlow,
+                      fontWeight: 'bold',
+                    }
+                  : {
+                      borderColor: p.border,
+                      color: p.text,
+                    }
+              }
               title="Telemetry & Diagnostics"
             >
               <Info className="w-4 h-4" />
@@ -351,7 +446,11 @@ export default function App() {
 
             <button
               onClick={() => setShowSettingsModal(true)}
-              className="p-2 rounded-xl border border-[#315C45] text-[#315C45] hover:bg-[#315C45] hover:text-[#F6F5EF] transition-colors cursor-pointer"
+              className="p-2 rounded-xl border transition-colors cursor-pointer hover:opacity-80"
+              style={{
+                borderColor: p.border,
+                color: p.text,
+              }}
               title="Settings"
             >
               <Settings className="w-4 h-4" />
@@ -361,32 +460,54 @@ export default function App() {
 
         {/* Right Header Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Prominent Contact Creator Button in Header */}
+          <button
+            onClick={() => setShowContactModal(true)}
+            className="tubelight-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs"
+            style={{
+              backgroundColor: p.cardBg,
+              borderColor: p.border,
+              color: p.text,
+              boxShadow: p.tubelightGlow,
+            }}
+            title="Contact Nima Nabizada (Email, GitHub, LinkedIn, Portfolio)"
+          >
+            <Mail className="w-3.5 h-3.5 text-[#38BDF8]" />
+            <span className="hidden md:inline">Contact</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8] animate-pulse" />
+          </button>
+
           {/* User Account / Sign In Button */}
           {currentUser ? (
             <button
               onClick={() => setShowProfileModal(true)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs"
               style={{
-                backgroundColor: '#315C45',
-                borderColor: '#B59B7A',
-                color: '#F6F5EF',
+                backgroundColor: p.cardBg,
+                borderColor: p.border,
+                color: p.text,
+                boxShadow: p.tubelightGlow,
               }}
               title="Account Profile & Security"
             >
-              <div className="w-5 h-5 rounded-full bg-[#B59B7A] text-[#F6F5EF] flex items-center justify-center text-[10px] font-bold">
+              <div
+                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                style={{ backgroundColor: p.primary, color: p.activeBtnText }}
+              >
                 {currentUser.name.charAt(0).toUpperCase()}
               </div>
               <span className="max-w-[90px] truncate hidden sm:inline">{currentUser.name}</span>
-              <ShieldCheck className="w-3.5 h-3.5 text-[#B59B7A] hidden md:inline" />
+              <ShieldCheck className="w-3.5 h-3.5 hidden md:inline" style={{ color: p.textMuted }} />
             </button>
           ) : (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs border"
+              className="tubelight-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs border"
               style={{
-                backgroundColor: '#315C45',
-                borderColor: '#B59B7A',
-                color: '#F6F5EF',
+                backgroundColor: p.primary,
+                borderColor: p.border,
+                color: p.activeBtnText,
+                boxShadow: p.tubelightGlow,
               }}
             >
               <User className="w-3.5 h-3.5" />
@@ -397,7 +518,11 @@ export default function App() {
           {/* Quick Theme Mode Toggle */}
           <button
             onClick={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
-            className="p-2 rounded-xl border border-[#315C45] text-[#315C45] hover:bg-[#315C45] hover:text-[#F6F5EF] transition-colors cursor-pointer"
+            className="p-2 rounded-xl border transition-colors cursor-pointer hover:opacity-80"
+            style={{
+              borderColor: p.border,
+              color: p.text,
+            }}
             title={themeMode === 'dark' ? t.lightMode : t.darkMode}
           >
             {themeMode === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -406,7 +531,11 @@ export default function App() {
           {/* Quick Language Toggle (EN / FA) */}
           <button
             onClick={() => setAppLang(appLang === 'en' ? 'fa' : 'en')}
-            className="px-2.5 py-1.5 rounded-xl border border-[#315C45] text-xs font-bold text-[#315C45] hover:bg-[#315C45] hover:text-[#F6F5EF] transition-colors cursor-pointer"
+            className="px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer hover:opacity-80"
+            style={{
+              borderColor: p.border,
+              color: p.text,
+            }}
             title="Switch Language"
           >
             {appLang === 'en' ? 'FA' : 'EN'}
@@ -427,6 +556,7 @@ export default function App() {
                 onRestart={handleRestart}
                 onNextTest={handleRestart}
                 appLang={appLang}
+                themeMode={themeMode}
               />
             ) : (
               <>
@@ -435,9 +565,9 @@ export default function App() {
                   <div
                     className="rounded-2xl border px-4 py-2 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs font-mono shadow-sm select-none"
                     style={{
-                      backgroundColor: '#F6F5EF',
-                      borderColor: '#315C45',
-                      color: '#315C45',
+                      backgroundColor: p.cardBg,
+                      borderColor: p.border,
+                      color: p.text,
                     }}
                   >
                     {/* Punctuation & Numbers */}
@@ -447,11 +577,19 @@ export default function App() {
                           setPunctuation(!punctuation);
                           handleRestart();
                         }}
-                        className={`flex items-center gap-1 cursor-pointer transition-colors ${
+                        className="flex items-center gap-1 cursor-pointer transition-all px-2 py-0.5 rounded"
+                        style={
                           punctuation
-                            ? 'bg-[#315C45] text-[#F6F5EF] px-2 py-0.5 rounded font-bold'
-                            : 'hover:text-[#B59B7A]'
-                        }`}
+                            ? {
+                                backgroundColor: p.primary,
+                                color: p.activeBtnText,
+                                fontWeight: 'bold',
+                                boxShadow: p.tubelightGlow,
+                              }
+                            : {
+                                color: p.textMuted,
+                              }
+                        }
                       >
                         <span>@</span>
                         <span>punctuation</span>
@@ -462,18 +600,26 @@ export default function App() {
                           setNumbers(!numbers);
                           handleRestart();
                         }}
-                        className={`flex items-center gap-1 cursor-pointer transition-colors ${
+                        className="flex items-center gap-1 cursor-pointer transition-all px-2 py-0.5 rounded"
+                        style={
                           numbers
-                            ? 'bg-[#315C45] text-[#F6F5EF] px-2 py-0.5 rounded font-bold'
-                            : 'hover:text-[#B59B7A]'
-                        }`}
+                            ? {
+                                backgroundColor: p.primary,
+                                color: p.activeBtnText,
+                                fontWeight: 'bold',
+                                boxShadow: p.tubelightGlow,
+                              }
+                            : {
+                                color: p.textMuted,
+                              }
+                        }
                       >
                         <span>#</span>
                         <span>numbers</span>
                       </button>
                     </div>
 
-                    <div className="w-[2px] h-3 rounded-full bg-[#315C45] hidden sm:block" />
+                    <div className="w-[2px] h-3 rounded-full hidden sm:block" style={{ backgroundColor: p.border }} />
 
                     {/* Mode Types */}
                     <div className="flex items-center gap-3 sm:gap-4">
@@ -482,11 +628,19 @@ export default function App() {
                           setTestMode('time');
                           handleRestart();
                         }}
-                        className={`flex items-center gap-1.5 cursor-pointer transition-colors ${
+                        className="flex items-center gap-1.5 cursor-pointer transition-all px-2 py-0.5 rounded"
+                        style={
                           testMode === 'time'
-                            ? 'bg-[#315C45] text-[#F6F5EF] px-2 py-0.5 rounded font-bold'
-                            : 'hover:text-[#B59B7A]'
-                        }`}
+                            ? {
+                                backgroundColor: p.primary,
+                                color: p.activeBtnText,
+                                fontWeight: 'bold',
+                                boxShadow: p.tubelightGlow,
+                              }
+                            : {
+                                color: p.textMuted,
+                              }
+                        }
                       >
                         <Clock className="w-3.5 h-3.5" />
                         <span>time</span>
@@ -497,11 +651,19 @@ export default function App() {
                           setTestMode('words');
                           handleRestart();
                         }}
-                        className={`flex items-center gap-1.5 cursor-pointer transition-colors ${
+                        className="flex items-center gap-1.5 cursor-pointer transition-all px-2 py-0.5 rounded"
+                        style={
                           testMode === 'words'
-                            ? 'bg-[#315C45] text-[#F6F5EF] px-2 py-0.5 rounded font-bold'
-                            : 'hover:text-[#B59B7A]'
-                        }`}
+                            ? {
+                                backgroundColor: p.primary,
+                                color: p.activeBtnText,
+                                fontWeight: 'bold',
+                                boxShadow: p.tubelightGlow,
+                              }
+                            : {
+                                color: p.textMuted,
+                              }
+                        }
                       >
                         <Type className="w-3.5 h-3.5" />
                         <span>words</span>
@@ -512,11 +674,19 @@ export default function App() {
                           setTestMode('quote');
                           handleRestart();
                         }}
-                        className={`flex items-center gap-1.5 cursor-pointer transition-colors ${
+                        className="flex items-center gap-1.5 cursor-pointer transition-all px-2 py-0.5 rounded"
+                        style={
                           testMode === 'quote'
-                            ? 'bg-[#315C45] text-[#F6F5EF] px-2 py-0.5 rounded font-bold'
-                            : 'hover:text-[#B59B7A]'
-                        }`}
+                            ? {
+                                backgroundColor: p.primary,
+                                color: p.activeBtnText,
+                                fontWeight: 'bold',
+                                boxShadow: p.tubelightGlow,
+                              }
+                            : {
+                                color: p.textMuted,
+                              }
+                        }
                       >
                         <Quote className="w-3.5 h-3.5" />
                         <span>quote</span>
@@ -527,11 +697,19 @@ export default function App() {
                           setTestMode('code');
                           handleRestart();
                         }}
-                        className={`flex items-center gap-1.5 cursor-pointer transition-colors ${
+                        className="flex items-center gap-1.5 cursor-pointer transition-all px-2 py-0.5 rounded"
+                        style={
                           testMode === 'code'
-                            ? 'bg-[#315C45] text-[#F6F5EF] px-2 py-0.5 rounded font-bold'
-                            : 'hover:text-[#B59B7A]'
-                        }`}
+                            ? {
+                                backgroundColor: p.primary,
+                                color: p.activeBtnText,
+                                fontWeight: 'bold',
+                                boxShadow: p.tubelightGlow,
+                              }
+                            : {
+                                color: p.textMuted,
+                              }
+                        }
                       >
                         <Code2 className="w-3.5 h-3.5" />
                         <span>code</span>
@@ -542,18 +720,26 @@ export default function App() {
                           setTestMode('custom');
                           handleRestart();
                         }}
-                        className={`flex items-center gap-1.5 cursor-pointer transition-colors ${
+                        className="flex items-center gap-1.5 cursor-pointer transition-all px-2 py-0.5 rounded"
+                        style={
                           testMode === 'custom'
-                            ? 'bg-[#315C45] text-[#F6F5EF] px-2 py-0.5 rounded font-bold'
-                            : 'hover:text-[#B59B7A]'
-                        }`}
+                            ? {
+                                backgroundColor: p.primary,
+                                color: p.activeBtnText,
+                                fontWeight: 'bold',
+                                boxShadow: p.tubelightGlow,
+                              }
+                            : {
+                                color: p.textMuted,
+                              }
+                        }
                       >
                         <Wrench className="w-3.5 h-3.5" />
                         <span>custom</span>
                       </button>
                     </div>
 
-                    <div className="w-[2px] h-3 rounded-full bg-[#315C45] hidden sm:block" />
+                    <div className="w-[2px] h-3 rounded-full hidden sm:block" style={{ backgroundColor: p.border }} />
 
                     {/* Quantities */}
                     <div className="flex items-center gap-3">
@@ -566,11 +752,19 @@ export default function App() {
                                 setTimeDuration(dur);
                                 handleRestart();
                               }}
-                              className={`cursor-pointer transition-colors ${
+                              className="cursor-pointer transition-all px-1.5 py-0.5 rounded"
+                              style={
                                 timeDuration === dur
-                                  ? 'bg-[#315C45] text-[#F6F5EF] px-1.5 py-0.5 rounded font-bold'
-                                  : 'hover:text-[#B59B7A]'
-                              }`}
+                                  ? {
+                                      backgroundColor: p.primary,
+                                      color: p.activeBtnText,
+                                      fontWeight: 'bold',
+                                      boxShadow: p.tubelightGlow,
+                                    }
+                                  : {
+                                      color: p.textMuted,
+                                    }
+                              }
                             >
                               {dur}
                             </button>
@@ -587,11 +781,19 @@ export default function App() {
                                 setWordCount(cnt);
                                 handleRestart();
                               }}
-                              className={`cursor-pointer transition-colors ${
+                              className="cursor-pointer transition-all px-1.5 py-0.5 rounded"
+                              style={
                                 wordCount === cnt
-                                  ? 'bg-[#315C45] text-[#F6F5EF] px-1.5 py-0.5 rounded font-bold'
-                                  : 'hover:text-[#B59B7A]'
-                              }`}
+                                  ? {
+                                      backgroundColor: p.primary,
+                                      color: p.activeBtnText,
+                                      fontWeight: 'bold',
+                                      boxShadow: p.tubelightGlow,
+                                    }
+                                  : {
+                                      color: p.textMuted,
+                                    }
+                              }
                             >
                               {cnt}
                             </button>
@@ -608,11 +810,19 @@ export default function App() {
                                 setQuoteLength(ql);
                                 handleRestart();
                               }}
-                              className={`capitalize cursor-pointer transition-colors ${
+                              className="capitalize cursor-pointer transition-all px-1.5 py-0.5 rounded"
+                              style={
                                 quoteLength === ql
-                                  ? 'bg-[#315C45] text-[#F6F5EF] px-1.5 py-0.5 rounded font-bold'
-                                  : 'hover:text-[#B59B7A]'
-                              }`}
+                                  ? {
+                                      backgroundColor: p.primary,
+                                      color: p.activeBtnText,
+                                      fontWeight: 'bold',
+                                      boxShadow: p.tubelightGlow,
+                                    }
+                                  : {
+                                      color: p.textMuted,
+                                    }
+                              }
                             >
                               {ql}
                             </button>
@@ -629,11 +839,19 @@ export default function App() {
                                 setCodeLang(lang);
                                 handleRestart();
                               }}
-                              className={`capitalize cursor-pointer transition-colors ${
+                              className="capitalize cursor-pointer transition-all px-1.5 py-0.5 rounded"
+                              style={
                                 codeLang === lang
-                                  ? 'bg-[#315C45] text-[#F6F5EF] px-1.5 py-0.5 rounded font-bold'
-                                  : 'hover:text-[#B59B7A]'
-                              }`}
+                                  ? {
+                                      backgroundColor: p.primary,
+                                      color: p.activeBtnText,
+                                      fontWeight: 'bold',
+                                      boxShadow: p.tubelightGlow,
+                                    }
+                                  : {
+                                      color: p.textMuted,
+                                    }
+                              }
                             >
                               {lang}
                             </button>
@@ -644,13 +862,16 @@ export default function App() {
                   </div>
 
                   {/* Sub-bar below pill */}
-                  <div className="flex items-center gap-6 text-xs text-[#315C45] font-mono select-none font-bold">
+                  <div
+                    className="flex items-center gap-6 text-xs font-mono select-none font-bold"
+                    style={{ color: p.text }}
+                  >
                     <button
                       onClick={() => {
                         setTestLang(testLang === 'en' ? 'fa' : 'en');
                         handleRestart();
                       }}
-                      className="flex items-center gap-1.5 hover:text-[#B59B7A] transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 transition-colors cursor-pointer hover:opacity-80"
                       title="Switch test language"
                     >
                       <Globe className="w-3.5 h-3.5" />
@@ -658,8 +879,8 @@ export default function App() {
                     </button>
 
                     <div className="flex items-center gap-1 text-[11px]">
-                      <span className="text-[#B59B7A]">daily pace:</span>
-                      <span className="text-[#315C45] font-bold">
+                      <span style={{ color: p.textMuted }}>daily pace:</span>
+                      <span className="font-bold" style={{ color: p.text }}>
                         {bestWpm > 0 ? `${bestWpm} wpm` : '0 wpm'}
                       </span>
                     </div>
@@ -693,7 +914,7 @@ export default function App() {
             )}
 
             {/* Flat Clever Live Key Rhythm Visualizer (2D Matrix) */}
-            <div className="w-full mt-4">
+            <div className="w-full mt-4" dir="ltr" style={{ direction: 'ltr' }}>
               <LiveKeyRhythm
                 activeKeyCode={activeKeyCode}
                 keyStats={keyStats}
@@ -702,6 +923,7 @@ export default function App() {
                 burstWpm={burstWpm}
                 instantLatency={instantLatency}
                 lastKeystrokeTime={lastKeystrokeTime}
+                themeMode={themeMode}
               />
             </div>
           </>
@@ -719,31 +941,33 @@ export default function App() {
                 accuracy={currentResult?.accuracy || avgAccuracy}
                 highestStreak={currentResult?.highestStreak || 0}
                 onClose={() => setActiveTab('engine')}
+                themeMode={themeMode}
               />
             ) : (
               <div
                 className="p-12 rounded-3xl border text-center space-y-4 shadow-sm"
                 style={{
-                  backgroundColor: '#F6F5EF',
-                  borderColor: '#315C45',
-                  color: '#315C45',
+                  backgroundColor: p.cardBg,
+                  borderColor: p.border,
+                  color: p.text,
                 }}
               >
                 <div className="text-4xl">⚡</div>
-                <h3 className="text-2xl font-bold tracking-tight text-[#315C45]">
+                <h3 className="text-2xl font-bold tracking-tight" style={{ color: p.text }}>
                   NO TELEMETRY DATA LOGGED YET
                 </h3>
-                <p className="text-sm text-[#B59B7A] max-w-md mx-auto font-bold">
+                <p className="text-sm max-w-md mx-auto font-bold" style={{ color: p.textMuted }}>
                   Complete your first test session in the Engine to generate multi-dimensional keystroke latency,
                   finger load distribution, and error typology diagnostics.
                 </p>
                 <button
                   onClick={() => setActiveTab('engine')}
-                  className="px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all active:scale-95 border cursor-pointer"
+                  className="tubelight-btn px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all active:scale-95 border cursor-pointer"
                   style={{
-                    backgroundColor: '#315C45',
-                    borderColor: '#B59B7A',
-                    color: '#F6F5EF',
+                    backgroundColor: p.primary,
+                    borderColor: p.border,
+                    color: p.activeBtnText,
+                    boxShadow: p.tubelightGlow,
                   }}
                 >
                   Start Typing Session
@@ -763,15 +987,15 @@ export default function App() {
               <div
                 className="p-6 rounded-2xl border shadow-sm"
                 style={{
-                  backgroundColor: '#315C45',
-                  borderColor: '#B59B7A',
-                  color: '#F6F5EF',
+                  backgroundColor: p.cardBg,
+                  borderColor: p.border,
+                  color: p.text,
                 }}
               >
-                <span className="text-xs uppercase tracking-wider opacity-80 font-bold">
+                <span className="text-xs uppercase tracking-wider font-bold" style={{ color: p.textMuted }}>
                   Peak Velocity
                 </span>
-                <div className="text-5xl font-extrabold mt-1">
+                <div className="text-5xl font-extrabold mt-1" style={{ color: p.text }}>
                   {bestWpm} <span className="text-sm opacity-75 font-normal">WPM</span>
                 </div>
               </div>
@@ -779,15 +1003,15 @@ export default function App() {
               <div
                 className="p-6 rounded-2xl border shadow-sm"
                 style={{
-                  backgroundColor: '#315C45',
-                  borderColor: '#B59B7A',
-                  color: '#F6F5EF',
+                  backgroundColor: p.cardBg,
+                  borderColor: p.border,
+                  color: p.text,
                 }}
               >
-                <span className="text-xs uppercase tracking-wider opacity-80 font-bold">
+                <span className="text-xs uppercase tracking-wider font-bold" style={{ color: p.textMuted }}>
                   Historical Average
                 </span>
-                <div className="text-5xl font-extrabold mt-1">
+                <div className="text-5xl font-extrabold mt-1" style={{ color: p.text }}>
                   {avgWpm} <span className="text-sm opacity-75 font-normal">WPM</span>
                 </div>
               </div>
@@ -795,15 +1019,15 @@ export default function App() {
               <div
                 className="p-6 rounded-2xl border shadow-sm"
                 style={{
-                  backgroundColor: '#315C45',
-                  borderColor: '#B59B7A',
-                  color: '#F6F5EF',
+                  backgroundColor: p.cardBg,
+                  borderColor: p.border,
+                  color: p.text,
                 }}
               >
-                <span className="text-xs uppercase tracking-wider opacity-80 font-bold">
+                <span className="text-xs uppercase tracking-wider font-bold" style={{ color: p.textMuted }}>
                   Total Runs Logged
                 </span>
-                <div className="text-5xl font-extrabold mt-1">
+                <div className="text-5xl font-extrabold mt-1" style={{ color: p.text }}>
                   {history.length}
                 </div>
               </div>
@@ -813,14 +1037,14 @@ export default function App() {
             <div
               className="rounded-2xl border overflow-hidden shadow-sm"
               style={{
-                backgroundColor: '#315C45',
-                borderColor: '#B59B7A',
-                color: '#F6F5EF',
+                backgroundColor: p.cardBg,
+                borderColor: p.border,
+                color: p.text,
               }}
             >
               <div
                 className="p-4 border-b flex items-center justify-between"
-                style={{ borderColor: '#B59B7A' }}
+                style={{ borderColor: p.border }}
               >
                 <h3 className="text-xs uppercase tracking-wider font-bold">
                   Recent Flight Logs
@@ -831,7 +1055,8 @@ export default function App() {
                       setHistory([]);
                       localStorage.removeItem('kinetic_typing_history');
                     }}
-                    className="text-xs text-[#B59B7A] hover:underline transition-colors uppercase font-bold cursor-pointer"
+                    className="text-xs hover:underline transition-colors uppercase font-bold cursor-pointer"
+                    style={{ color: p.textMuted }}
                   >
                     Clear History
                   </button>
@@ -844,9 +1069,9 @@ export default function App() {
                     <thead
                       className="border-b uppercase text-[10px]"
                       style={{
-                        backgroundColor: '#F6F5EF',
-                        color: '#315C45',
-                        borderColor: '#315C45',
+                        backgroundColor: p.cardSurface,
+                        color: p.text,
+                        borderColor: p.border,
                       }}
                     >
                       <tr>
@@ -859,16 +1084,16 @@ export default function App() {
                         <th className="p-3.5 text-center">Inspect</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#B59B7A]/30">
+                    <tbody className="divide-y" style={{ borderColor: p.border }}>
                       {history.map((h) => (
                         <tr
                           key={h.id}
-                          className="transition hover:bg-black/10"
+                          className="transition hover:bg-black/5"
                         >
                           <td className="p-3.5 opacity-80">
                             {new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </td>
-                          <td className="p-3.5 uppercase font-bold text-[#B59B7A]">
+                          <td className="p-3.5 uppercase font-bold" style={{ color: p.textMuted }}>
                             {h.testMode}
                           </td>
                           <td className="p-3.5 text-right font-bold text-sm">
@@ -889,11 +1114,12 @@ export default function App() {
                                 setCurrentResult(h);
                                 setShowResultModal(true);
                               }}
-                              className="px-3 py-1 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer border"
+                              className="tubelight-btn px-3 py-1 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer border"
                               style={{
-                                backgroundColor: '#315C45',
-                                borderColor: '#B59B7A',
-                                color: '#F6F5EF',
+                                backgroundColor: p.primary,
+                                borderColor: p.border,
+                                color: p.activeBtnText,
+                                boxShadow: p.tubelightGlow,
                               }}
                             >
                               Details
@@ -915,76 +1141,72 @@ export default function App() {
       </main>
 
       {/* ------------------------------------------------------------- */}
-      {/* 3. FOOTER                                                     */}
+      {/* 3. FOOTER (Strictly Contact Nima Nabizada & Designed by...)   */}
       {/* ------------------------------------------------------------- */}
-      <footer className="w-full max-w-6xl mx-auto px-4 sm:px-8 py-6 mt-auto flex flex-wrap items-center justify-between gap-4 text-xs font-mono text-[#315C45] select-none font-bold">
-        <div className="flex flex-wrap items-center gap-4 sm:gap-5">
+      <footer
+        className="w-full max-w-6xl mx-auto px-4 sm:px-8 py-6 mt-auto flex flex-wrap items-center justify-between gap-4 text-xs font-mono select-none font-bold border-t"
+        style={{
+          borderColor: p.border,
+          color: p.text,
+        }}
+      >
+        {/* Left: Contact Trigger with Tubelight Glow */}
+        <div className="flex flex-wrap items-center gap-4">
           <button
-            onClick={() => setShowDesktopModal(true)}
-            className="hover:text-[#B59B7A] transition-colors flex items-center gap-1.5 cursor-pointer"
+            onClick={() => setShowContactModal(true)}
+            className="tubelight-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-sm active:scale-95"
+            style={{
+              backgroundColor: p.cardBg,
+              borderColor: p.border,
+              color: p.text,
+              boxShadow: p.tubelightGlow,
+            }}
+            title="View Nima Nabizada Contact Info (Email, Phone, GitHub, LinkedIn, Portfolio)"
           >
-            <Mail className="w-3.5 h-3.5" />
-            <span>contact</span>
+            <Mail className="w-4 h-4 text-[#38BDF8]" />
+            <span className="tracking-wide">Contact</span>
+            <span className="w-2 h-2 rounded-full bg-[#38BDF8] animate-ping" />
           </button>
 
+          {/* Direct Quick Contact Links */}
           <a
-            href="https://github.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-[#B59B7A] transition-colors flex items-center gap-1.5"
+            href="mailto:nimaalkantra7@gmail.com"
+            className="hover:underline transition-colors flex items-center gap-1.5 opacity-80 hover:opacity-100"
+            style={{ color: p.text }}
           >
-            <Heart className="w-3.5 h-3.5" />
-            <span>support</span>
+            <span>nimaalkantra7@gmail.com</span>
           </a>
 
           <a
-            href="https://github.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-[#B59B7A] transition-colors flex items-center gap-1.5"
+            href="tel:+93797355027"
+            className="hidden sm:flex hover:underline transition-colors items-center gap-1.5 opacity-80 hover:opacity-100"
+            style={{ color: p.text }}
           >
-            <Github className="w-3.5 h-3.5" />
-            <span>github</span>
+            <span>+93797355027</span>
           </a>
-
-          <a
-            href="https://discord.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-[#B59B7A] transition-colors flex items-center gap-1.5"
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>discord</span>
-          </a>
-
-          <a
-            href="https://twitter.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-[#B59B7A] transition-colors flex items-center gap-1.5"
-          >
-            <Twitter className="w-3.5 h-3.5" />
-            <span>twitter</span>
-          </a>
-
-          <span className="hover:text-[#B59B7A] transition-colors cursor-pointer">terms</span>
-          <span className="hover:text-[#B59B7A] transition-colors cursor-pointer">security</span>
-          <span className="hover:text-[#B59B7A] transition-colors cursor-pointer">privacy</span>
         </div>
 
+        {/* Center/Right: "Designed by Nima Nabizada." as requested */}
         <div className="flex items-center gap-4 sm:gap-6">
+          <span className="text-sm font-extrabold tracking-wide" style={{ color: p.text }}>
+            Designed by Nima Nabizada.
+          </span>
+
           {currentUser && (
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#315C45] border border-[#B59B7A] inline-block" />
+            <span className="hidden md:flex items-center gap-1.5 opacity-80">
+              <span
+                className="w-2 h-2 rounded-full inline-block"
+                style={{ backgroundColor: p.primary, border: `1px solid ${p.border}` }}
+              />
               {currentUser.email}
             </span>
           )}
-          <span className="text-[#B59B7A]">v26.32.0</span>
+          <span style={{ color: p.textMuted }}>v26.32.0</span>
         </div>
       </footer>
 
       {/* ------------------------------------------------------------- */}
-      {/* 4. MODALS (AUTH, PROFILE, SETTINGS & DESKTOP APP)             */}
+      {/* 4. MODALS (AUTH, PROFILE, SETTINGS, DESKTOP & CONTACT MODAL)  */}
       {/* ------------------------------------------------------------- */}
       <AuthModal
         isOpen={showAuthModal}
@@ -995,19 +1217,21 @@ export default function App() {
         }}
         canClose={!!currentUser}
         appLang={appLang}
+        themeMode={themeMode}
       />
 
       <UserProfileModal
         isOpen={showProfileModal}
         user={currentUser}
         onClose={() => setShowProfileModal(false)}
-        onLogout={() => {
-          clearSession();
+        onLogout={async () => {
+          await clearSession();
           setCurrentUser(null);
           setShowProfileModal(false);
           setShowAuthModal(true);
         }}
         appLang={appLang}
+        themeMode={themeMode}
       />
 
       <SettingsModal
@@ -1041,6 +1265,13 @@ export default function App() {
       <DesktopAppModal
         isOpen={showDesktopModal}
         onClose={() => setShowDesktopModal(false)}
+        themeMode={themeMode}
+      />
+
+      <ContactModal
+        isOpen={showContactModal}
+        onClose={() => setShowContactModal(false)}
+        themeMode={themeMode}
       />
     </div>
   );
